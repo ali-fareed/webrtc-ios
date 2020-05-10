@@ -1231,6 +1231,38 @@ if (is_ios || is_mac) {
     }
 
     if (is_ios) {
+      rtc_static_library("framework_objc_static") {
+        complete_static_lib = true
+
+        deps = [
+          ":audio_objc",
+          ":base_objc",
+          ":default_codec_factory_objc",
+          ":native_api",
+          ":native_video",
+          ":peerconnectionfactory_base_objc",
+          ":ui_objc",
+          ":videocapture_objc",
+          ":videocodec_objc",
+          ":videotoolbox_objc",
+          "../rtc_base:rtc_base_approved",
+        ]
+        if (rtc_use_metal_rendering) {
+          deps += [ ":metal_objc" ]
+        }
+        if (!build_with_chromium) {
+          deps += [
+            ":callback_logger_objc",
+            ":file_logger_objc",
+          ]
+        }
+
+        configs += [
+          "..:common_objc",
+          ":used_from_extension",
+        ]
+      }
+    
       ios_framework_bundle_with_umbrella_header("framework_objc") {
         info_plist = "objc/Info.plist"
         output_name = "WebRTC"
