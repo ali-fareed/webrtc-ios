@@ -12,6 +12,7 @@ import("//build/config/sanitizers/sanitizers.gni")
 import("//build/config/sysroot.gni")
 import("//build/config/ui.gni")
 import("//build_overrides/build.gni")
+#import("//build_overrides/ssl/ssl.gni")
 
 if (!build_with_chromium && is_component_build) {
   print("The Gn argument `is_component_build` is currently " +
@@ -83,7 +84,7 @@ declare_args() {
 
   # Used to specify an external OpenSSL include path when not compiling the
   # library that comes with WebRTC (i.e. rtc_build_ssl == 0).
-  rtc_ssl_root = ""
+  #rtc_ssl_root = owt_openssl_header_root
 
   # Selects fixed-point code where possible.
   rtc_prefer_fixed_point = false
@@ -212,7 +213,7 @@ declare_args() {
   rtc_build_libvpx = !build_with_mozilla
   rtc_libvpx_build_vp9 = !build_with_mozilla
   rtc_build_opus = !build_with_mozilla
-  rtc_build_ssl = !build_with_mozilla
+  rtc_build_ssl = false #!owt_use_openssl
   rtc_build_usrsctp = !build_with_mozilla
 
   # Enable libevent task queues on platforms that support it.
@@ -252,6 +253,13 @@ declare_args() {
   # Set this to true to disable detailed error message and logging for
   # RTC_CHECKs.
   rtc_disable_check_msg = false
+
+  # Set this to true to disable webrtc metrics.
+  rtc_disable_metrics = false
+
+  # Set this to true to exclude the transient suppressor in the audio processing
+  # module from the build.
+  rtc_exclude_transient_suppressor = false
 }
 
 # Make it possible to provide custom locations for some libraries (move these
@@ -861,11 +869,9 @@ if (is_ios) {
     action("umbrella_header_$target_name") {
       forward_variables_from(invoker, [ "public_headers" ])
 
-      script = "//tools_webrtc/ios/generate_umbrella_header.py"
+      script = "../tools_webrtc/ios/generate_umbrella_header.py"
 
-      outputs = [
-        umbrella_header_path,
-      ]
+      outputs = [ umbrella_header_path ]
       args = [
                "--out",
                rebase_path(umbrella_header_path, root_build_dir),
@@ -874,16 +880,11 @@ if (is_ios) {
     }
 
     copy("copy_umbrella_header_$target_name") {
-      sources = [
-        umbrella_header_path,
-      ]
-      outputs = [
-        "$root_out_dir/$output_name.framework/Headers/$output_name.h",
-      ]
+      sources = [ umbrella_header_path ]
+      outputs =
+          [ "$root_out_dir/$output_name.framework/Headers/$output_name.h" ]
 
-      deps = [
-        ":umbrella_header_$target_name",
-      ]
+      deps = [ ":umbrella_header_$target_name" ]
     }
   }
 
@@ -930,44 +931,32 @@ if (is_mac) {
     bundle_data("copy_framework_headers_$this_target_name") {
       forward_variables_from(invoker, [ "sources" ])
 
-      outputs = [
-        "{{bundle_contents_dir}}/Headers/{{source_file_part}}",
-      ]
+      outputs = [ "{{bundle_contents_dir}}/Headers/{{source_file_part}}" ]
     }
 
     action("modulemap_$this_target_name") {
-      script = "//tools_webrtc/ios/generate_modulemap.py"
+      script = "../tools_webrtc/ios/generate_modulemap.py"
       args = [
         "--out",
         rebase_path(modulemap_path, root_build_dir),
         "--name",
         output_name,
       ]
-      outputs = [
-        modulemap_path,
-      ]
+      outputs = [ modulemap_path ]
     }
 
     bundle_data("copy_modulemap_$this_target_name") {
-      sources = [
-        modulemap_path,
-      ]
-      outputs = [
-        "{{bundle_contents_dir}}/Modules/module.modulemap",
-      ]
-      deps = [
-        ":modulemap_$this_target_name",
-      ]
+      sources = [ modulemap_path ]
+      outputs = [ "{{bundle_contents_dir}}/Modules/module.modulemap" ]
+      deps = [ ":modulemap_$this_target_name" ]
     }
 
     action("umbrella_header_$this_target_name") {
       forward_variables_from(invoker, [ "sources" ])
 
-      script = "//tools_webrtc/ios/generate_umbrella_header.py"
+      script = "../tools_webrtc/ios/generate_umbrella_header.py"
 
-      outputs = [
-        umbrella_header_path,
-      ]
+      outputs = [ umbrella_header_path ]
       args = [
                "--out",
                rebase_path(umbrella_header_path, root_build_dir),
@@ -976,16 +965,10 @@ if (is_mac) {
     }
 
     bundle_data("copy_umbrella_header_$this_target_name") {
-      sources = [
-        umbrella_header_path,
-      ]
-      outputs = [
-        "{{bundle_contents_dir}}/Headers/$output_name.h",
-      ]
+      sources = [ umbrella_header_path ]
+      outputs = [ "{{bundle_contents_dir}}/Headers/$output_name.h" ]
 
-      deps = [
-        ":umbrella_header_$this_target_name",
-      ]
+      deps = [ ":umbrella_header_$this_target_name" ]
     }
   }
 }

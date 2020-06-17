@@ -59,6 +59,13 @@ webrtc::RTCError VerifyCandidate(const cricket::Candidate& cand) {
     }
   }
 
+  // Disallow ICE-TCP with a private IP address.
+  if (cand.protocol() == cricket::TCP_PROTOCOL_NAME &&
+      cand.address().IsPrivateIP()) {
+    return webrtc::RTCError(webrtc::RTCErrorType::INVALID_PARAMETER,
+                            "candidate is TCP and has a private IP address");
+  }
+
   return webrtc::RTCError::OK();
 }
 
@@ -436,19 +443,19 @@ void JsepTransportController::SetMediaTransportSettings(
       use_datagram_transport_for_data_channels_receive_only;
 }
 
-void JsepTransportController::RollbackTransportForMids(
-    const std::vector<std::string>& mids) {
+void JsepTransportController::RollbackTransports() {
   if (!network_thread_->IsCurrent()) {
-    network_thread_->Invoke<void>(RTC_FROM_HERE,
-                                  [=] { RollbackTransportForMids(mids); });
+    network_thread_->Invoke<void>(RTC_FROM_HERE, [=] { RollbackTransports(); });
     return;
   }
-  for (auto&& mid : mids) {
+  RTC_DCHECK_RUN_ON(network_thread_);
+  for (auto&& mid : pending_mids_) {
     RemoveTransportForMid(mid);
   }
-  for (auto&& mid : mids) {
+  for (auto&& mid : pending_mids_) {
     MaybeDestroyJsepTransport(mid);
   }
+  pending_mids_.clear();
 }
 
 rtc::scoped_refptr<webrtc::IceTransportInterface>
@@ -598,7 +605,7 @@ RTCError JsepTransportController::ApplyDescription_n(
     bool local,
     SdpType type,
     const cricket::SessionDescription* description) {
-  RTC_DCHECK(network_thread_->IsCurrent());
+  RTC_DCHECK_RUN_ON(network_thread_);
   RTC_DCHECK(description);
 
   if (local) {
@@ -710,6 +717,9 @@ RTCError JsepTransportController::ApplyDescription_n(
                            "Failed to apply the description for " +
                                content_info.name + ": " + error.message());
     }
+  }
+  if (type == SdpType::kAnswer) {
+    pending_mids_.clear();
   }
   return RTCError::OK();
 }
@@ -867,7 +877,8 @@ bool JsepTransportController::SetTransportForMid(
   if (mid_to_transport_[mid] == jsep_transport) {
     return true;
   }
-
+  RTC_DCHECK_RUN_ON(network_thread_);
+  pending_mids_.push_back(mid);
   mid_to_transport_[mid] = jsep_transport;
   return config_.transport_observer->OnTransportChanged(
       mid, jsep_transport->rtp_transport(), jsep_transport->RtpDtlsTransport(),
@@ -1116,8 +1127,19 @@ JsepTransportController::MaybeCreateDatagramTransport(
       config_.media_transport_factory->CreateDatagramTransport(network_thread_,
                                                                settings);
 
-  // TODO(sukhanov): Proper error handling.
-  RTC_CHECK(datagram_transport_result.ok());
+  if (!datagram_transport_result.ok()) {
+    // Datagram transport negotiation will fail and we'll fall back to RTP.
+    return nullptr;
+  }
+
+  if (!datagram_transport_result.value()
+           ->SetRemoteTransportParameters(
+               transport_description->opaque_parameters->parameters)
+           .ok()) {
+    // Datagram transport negotiation failed (parameters are incompatible).
+    // Fall back to RTP.
+    return nullptr;
+  }
 
   return datagram_transport_result.MoveValue();
 }

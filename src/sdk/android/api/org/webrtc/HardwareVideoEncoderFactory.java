@@ -94,7 +94,7 @@ public class HardwareVideoEncoderFactory implements VideoEncoderFactory {
       return null;
     }
 
-    VideoCodecType type = VideoCodecType.valueOf(input.name);
+    VideoCodecMimeType type = VideoCodecMimeType.valueOf(input.name);
     MediaCodecInfo info = findCodecForType(type);
 
     if (info == null) {
@@ -108,7 +108,7 @@ public class HardwareVideoEncoderFactory implements VideoEncoderFactory {
     Integer yuvColorFormat = MediaCodecUtils.selectColorFormat(
         MediaCodecUtils.ENCODER_COLOR_FORMATS, info.getCapabilitiesForType(mime));
 
-    if (type == VideoCodecType.H264) {
+    if (type == VideoCodecMimeType.H264) {
       boolean isHighProfile = H264Utils.isSameH264Profile(
           input.params, MediaCodecUtils.getCodecProperties(type, /* highProfile= */ true));
       boolean isBaselineProfile = H264Utils.isSameH264Profile(
@@ -137,15 +137,16 @@ public class HardwareVideoEncoderFactory implements VideoEncoderFactory {
 
     List<VideoCodecInfo> supportedCodecInfos = new ArrayList<VideoCodecInfo>();
     // Generate a list of supported codecs in order of preference:
-    // VP8, VP9, H264 (high profile), and H264 (baseline profile).
-    for (VideoCodecType type :
-        new VideoCodecType[] {VideoCodecType.VP8, VideoCodecType.VP9, VideoCodecType.H264}) {
+    // VP8, VP9, H.265(optional), H264 (high profile), and H264 (baseline profile).
+    for (VideoCodecMimeType type : new VideoCodecMimeType[] {
+             VideoCodecMimeType.VP8, VideoCodecMimeType.VP9, VideoCodecMimeType.H264,
+			     VideoCodecMimeType.H265}) {
       MediaCodecInfo codec = findCodecForType(type);
       if (codec != null) {
         String name = type.name();
         // TODO(sakal): Always add H264 HP once WebRTC correctly removes codecs that are not
         // supported by the decoder.
-        if (type == VideoCodecType.H264 && isH264HighProfileSupported(codec)) {
+        if (type == VideoCodecMimeType.H264 && isH264HighProfileSupported(codec)) {
           supportedCodecInfos.add(new VideoCodecInfo(
               name, MediaCodecUtils.getCodecProperties(type, /* highProfile= */ true)));
         }
@@ -158,7 +159,7 @@ public class HardwareVideoEncoderFactory implements VideoEncoderFactory {
     return supportedCodecInfos.toArray(new VideoCodecInfo[supportedCodecInfos.size()]);
   }
 
-  private @Nullable MediaCodecInfo findCodecForType(VideoCodecType type) {
+  private @Nullable MediaCodecInfo findCodecForType(VideoCodecMimeType type) {
     for (int i = 0; i < MediaCodecList.getCodecCount(); ++i) {
       MediaCodecInfo info = null;
       try {
@@ -179,7 +180,7 @@ public class HardwareVideoEncoderFactory implements VideoEncoderFactory {
   }
 
   // Returns true if the given MediaCodecInfo indicates a supported encoder for the given type.
-  private boolean isSupportedCodec(MediaCodecInfo info, VideoCodecType type) {
+  private boolean isSupportedCodec(MediaCodecInfo info, VideoCodecMimeType type) {
     if (!MediaCodecUtils.codecSupportsType(info, type)) {
       return false;
     }
@@ -194,7 +195,7 @@ public class HardwareVideoEncoderFactory implements VideoEncoderFactory {
 
   // Returns true if the given MediaCodecInfo indicates a hardware module that is supported on the
   // current SDK.
-  private boolean isHardwareSupportedInCurrentSdk(MediaCodecInfo info, VideoCodecType type) {
+  private boolean isHardwareSupportedInCurrentSdk(MediaCodecInfo info, VideoCodecMimeType type) {
     switch (type) {
       case VP8:
         return isHardwareSupportedInCurrentSdkVp8(info);
@@ -202,6 +203,8 @@ public class HardwareVideoEncoderFactory implements VideoEncoderFactory {
         return isHardwareSupportedInCurrentSdkVp9(info);
       case H264:
         return isHardwareSupportedInCurrentSdkH264(info);
+      case H265:
+        return isHardwareSupportedInCurrentSdkH265(info);
     }
     return false;
   }
@@ -237,6 +240,15 @@ public class HardwareVideoEncoderFactory implements VideoEncoderFactory {
                && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP);
   }
 
+  private boolean isHardwareSupportedInCurrentSdkH265(MediaCodecInfo info) {
+    String name = info.getName();
+    // QCOM H265 encoder is supported in KITKAT or later.
+    return (name.startsWith(QCOM_PREFIX) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT)
+           // Exynos H265 encoder is supported in LOLLIPOP or later.
+           || (name.startsWith(EXYNOS_PREFIX)
+               && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP);
+  }
+
   private boolean isMediaCodecAllowed(MediaCodecInfo info) {
     if (codecAllowedPredicate == null) {
       return true;
@@ -244,19 +256,20 @@ public class HardwareVideoEncoderFactory implements VideoEncoderFactory {
     return codecAllowedPredicate.test(info);
   }
 
-  private int getKeyFrameIntervalSec(VideoCodecType type) {
+  private int getKeyFrameIntervalSec(VideoCodecMimeType type) {
     switch (type) {
       case VP8: // Fallthrough intended.
       case VP9:
         return 100;
       case H264:
+      case H265:
         return 20;
     }
-    throw new IllegalArgumentException("Unsupported VideoCodecType " + type);
+    throw new IllegalArgumentException("Unsupported VideoCodecMimeType " + type);
   }
 
-  private int getForcedKeyFrameIntervalMs(VideoCodecType type, String codecName) {
-    if (type == VideoCodecType.VP8 && codecName.startsWith(QCOM_PREFIX)) {
+  private int getForcedKeyFrameIntervalMs(VideoCodecMimeType type, String codecName) {
+    if (type == VideoCodecMimeType.VP8 && codecName.startsWith(QCOM_PREFIX)) {
       if (Build.VERSION.SDK_INT == Build.VERSION_CODES.LOLLIPOP
           || Build.VERSION.SDK_INT == Build.VERSION_CODES.LOLLIPOP_MR1) {
         return QCOM_VP8_KEY_FRAME_INTERVAL_ANDROID_L_MS;
@@ -270,9 +283,9 @@ public class HardwareVideoEncoderFactory implements VideoEncoderFactory {
     return 0;
   }
 
-  private BitrateAdjuster createBitrateAdjuster(VideoCodecType type, String codecName) {
+  private BitrateAdjuster createBitrateAdjuster(VideoCodecMimeType type, String codecName) {
     if (codecName.startsWith(EXYNOS_PREFIX)) {
-      if (type == VideoCodecType.VP8) {
+      if (type == VideoCodecMimeType.VP8) {
         // Exynos VP8 encoders need dynamic bitrate adjustment.
         return new DynamicBitrateAdjuster();
       } else {

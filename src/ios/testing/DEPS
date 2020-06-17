@@ -1,5 +1,0 @@
-include_rules = [
-  "+ios/third_party/earl_grey2/src",
-  "+net",
-  "+third_party/ocmock",
-]

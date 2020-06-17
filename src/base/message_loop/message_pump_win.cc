@@ -243,7 +243,7 @@ void MessagePumpForUI::DoRunLoop() {
       continue;
 
     // WaitForWork() does some work itself, so notify the delegate of it.
-    state_->delegate->BeforeDoInternalWork();
+    state_->delegate->BeforeWait();
     WaitForWork(next_work_info);
   }
 }
@@ -624,6 +624,7 @@ void MessagePumpForIO::DoRunLoop() {
     if (state_->should_quit)
       break;
 
+    state_->delegate->BeforeWait();
     more_work_is_plausible |= WaitForIOCompletion(0, nullptr);
     if (state_->should_quit)
       break;
@@ -638,6 +639,7 @@ void MessagePumpForIO::DoRunLoop() {
     if (more_work_is_plausible)
       continue;
 
+    state_->delegate->BeforeWait();
     WaitForWork(next_work_info);
   }
 }

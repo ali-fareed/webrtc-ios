@@ -240,6 +240,13 @@
   }
   return self;
 }
+- (instancetype)initWithNativePeerConnectionFactory:
+    (rtc::scoped_refptr<webrtc::PeerConnectionFactoryInterface>)factory {
+  if (self = [self initNative]) {
+    _nativeFactory = factory;
+  }
+  return self;
+}
 
 - (RTCAudioSource *)audioSourceWithConstraints:(nullable RTCMediaConstraints *)constraints {
   std::unique_ptr<webrtc::MediaConstraints> nativeConstraints;
@@ -294,6 +301,18 @@
                                       configuration:configuration
                                         constraints:constraints
                                            delegate:delegate];
+}
+
+- (RTCPeerConnection *)
+    peerConnectionWithDependencies:(RTCConfiguration *)configuration
+                       constraints:(RTCMediaConstraints *)constraints
+                      dependencies:(std::unique_ptr<webrtc::PeerConnectionDependencies>)dependencies
+                          delegate:(id<RTCPeerConnectionDelegate>)delegate {
+  return [[RTCPeerConnection alloc] initWithDependencies:self
+                                           configuration:configuration
+                                             constraints:constraints
+                                            dependencies:std::move(dependencies)
+                                                delegate:delegate];
 }
 
 - (void)setOptions:(nonnull RTCPeerConnectionFactoryOptions *)options {

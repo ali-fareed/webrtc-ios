@@ -1,6 +1,0 @@
-include_rules = [
-  "+components/strings",
-  "+ios/chrome",
-  "+ios/third_party/material_components_ios",
-  "+ui/base",
-]

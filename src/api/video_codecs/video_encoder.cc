@@ -11,6 +11,7 @@
 #include "api/video_codecs/video_encoder.h"
 
 #include <string.h>
+#include <algorithm>
 
 #include "rtc_base/checks.h"
 #include "rtc_base/strings/string_builder.h"
@@ -59,6 +60,23 @@ VideoCodecH264 VideoEncoder::GetDefaultH264Settings() {
   return h264_settings;
 }
 
+#ifndef DISABLE_H265
+VideoCodecH265 VideoEncoder::GetDefaultH265Settings() {
+  VideoCodecH265 h265_settings;
+  memset(&h265_settings, 0, sizeof(h265_settings));
+
+  // h265_settings.profile = kProfileBase;
+  h265_settings.frameDroppingOn = true;
+  h265_settings.keyFrameInterval = 3000;
+  h265_settings.spsData = nullptr;
+  h265_settings.spsLen = 0;
+  h265_settings.ppsData = nullptr;
+  h265_settings.ppsLen = 0;
+
+  return h265_settings;
+}
+#endif
+
 VideoEncoder::ScalingSettings::ScalingSettings() = default;
 
 VideoEncoder::ScalingSettings::ScalingSettings(KOff) : ScalingSettings() {}
@@ -92,6 +110,7 @@ bool VideoEncoder::ResolutionBitrateLimits::operator==(
 
 VideoEncoder::EncoderInfo::EncoderInfo()
     : scaling_settings(VideoEncoder::ScalingSettings::kOff),
+      requested_resolution_alignment(1),
       supports_native_handle(false),
       implementation_name("unknown"),
       has_trusted_rate_controller(false),
@@ -111,17 +130,21 @@ std::string VideoEncoder::EncoderInfo::ToString() const {
   rtc::SimpleStringBuilder oss(string_buf);
 
   oss << "EncoderInfo { "
-      << "ScalingSettings { ";
+         "ScalingSettings { ";
   if (scaling_settings.thresholds) {
     oss << "Thresholds { "
-        << "low = " << scaling_settings.thresholds->low
+           "low = "
+        << scaling_settings.thresholds->low
         << ", high = " << scaling_settings.thresholds->high << "}, ";
   }
   oss << "min_pixels_per_frame = " << scaling_settings.min_pixels_per_frame
       << " }";
-  oss << ", supports_native_handle = " << supports_native_handle
-      << ", implementation_name = '" << implementation_name << "'"
-      << ", has_trusted_rate_controller = " << has_trusted_rate_controller
+  oss << ", requested_resolution_alignment = " << requested_resolution_alignment
+      << ", supports_native_handle = " << supports_native_handle
+      << ", implementation_name = '" << implementation_name
+      << "'"
+         ", has_trusted_rate_controller = "
+      << has_trusted_rate_controller
       << ", is_hardware_accelerated = " << is_hardware_accelerated
       << ", has_internal_source = " << has_internal_source
       << ", fps_allocation = [";
@@ -152,13 +175,15 @@ std::string VideoEncoder::EncoderInfo::ToString() const {
     }
     ResolutionBitrateLimits l = resolution_bitrate_limits[i];
     oss << "Limits { "
-        << "frame_size_pixels = " << l.frame_size_pixels
+           "frame_size_pixels = "
+        << l.frame_size_pixels
         << ", min_start_bitrate_bps = " << l.min_start_bitrate_bps
         << ", min_bitrate_bps = " << l.min_bitrate_bps
         << ", max_bitrate_bps = " << l.max_bitrate_bps << "} ";
   }
   oss << "] "
-      << ", supports_simulcast = " << supports_simulcast << "}";
+         ", supports_simulcast = "
+      << supports_simulcast << "}";
   return oss.str();
 }
 
@@ -201,6 +226,42 @@ bool VideoEncoder::EncoderInfo::operator==(const EncoderInfo& rhs) const {
   return true;
 }
 
+absl::optional<VideoEncoder::ResolutionBitrateLimits>
+VideoEncoder::EncoderInfo::GetEncoderBitrateLimitsForResolution(
+    int frame_size_pixels) const {
+  std::vector<ResolutionBitrateLimits> bitrate_limits =
+      resolution_bitrate_limits;
+
+  // Sort the list of bitrate limits by resolution.
+  sort(bitrate_limits.begin(), bitrate_limits.end(),
+       [](const ResolutionBitrateLimits& lhs,
+          const ResolutionBitrateLimits& rhs) {
+         return lhs.frame_size_pixels < rhs.frame_size_pixels;
+       });
+
+  for (size_t i = 0; i < bitrate_limits.size(); ++i) {
+    RTC_DCHECK_GE(bitrate_limits[i].min_bitrate_bps, 0);
+    RTC_DCHECK_GE(bitrate_limits[i].min_start_bitrate_bps, 0);
+    RTC_DCHECK_GE(bitrate_limits[i].max_bitrate_bps,
+                  bitrate_limits[i].min_bitrate_bps);
+    if (i > 0) {
+      // The bitrate limits aren't expected to decrease with resolution.
+      RTC_DCHECK_GE(bitrate_limits[i].min_bitrate_bps,
+                    bitrate_limits[i - 1].min_bitrate_bps);
+      RTC_DCHECK_GE(bitrate_limits[i].min_start_bitrate_bps,
+                    bitrate_limits[i - 1].min_start_bitrate_bps);
+      RTC_DCHECK_GE(bitrate_limits[i].max_bitrate_bps,
+                    bitrate_limits[i - 1].max_bitrate_bps);
+    }
+
+    if (bitrate_limits[i].frame_size_pixels >= frame_size_pixels) {
+      return absl::optional<ResolutionBitrateLimits>(bitrate_limits[i]);
+    }
+  }
+
+  return absl::nullopt;
+}
+
 VideoEncoder::RateControlParameters::RateControlParameters()
     : bitrate(VideoBitrateAllocation()),
       framerate_fps(0.0),
@@ -211,7 +272,7 @@ VideoEncoder::RateControlParameters::RateControlParameters(
     double framerate_fps)
     : bitrate(bitrate),
       framerate_fps(framerate_fps),
-      bandwidth_allocation(DataRate::bps(bitrate.get_sum_bps())) {}
+      bandwidth_allocation(DataRate::BitsPerSec(bitrate.get_sum_bps())) {}
 
 VideoEncoder::RateControlParameters::RateControlParameters(
     const VideoBitrateAllocation& bitrate,

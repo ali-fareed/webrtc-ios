@@ -1,4 +1,0 @@
-# crbug.com/968349
--DrmWindowTest.CheckDeathOnFailedSwap
--HardwareDisplayControllerTest.CheckStateIfPageFlipFails
--HardwareDisplayControllerTest.FailPageFlipping

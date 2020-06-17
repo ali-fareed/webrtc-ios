@@ -13,13 +13,18 @@
 #include <memory>
 
 #include "absl/types/variant.h"
-#include "modules/rtp_rtcp/source/rtp_depacketizer_av1.h"
 #include "modules/rtp_rtcp/source/rtp_format_h264.h"
+#ifndef DISABLE_H265
+#include "modules/rtp_rtcp/source/rtp_format_h265.h"
+#endif
 #include "modules/rtp_rtcp/source/rtp_format_video_generic.h"
 #include "modules/rtp_rtcp/source/rtp_format_vp8.h"
 #include "modules/rtp_rtcp/source/rtp_format_vp9.h"
 #include "modules/rtp_rtcp/source/rtp_packetizer_av1.h"
 #include "modules/video_coding/codecs/h264/include/h264_globals.h"
+#ifndef DISABLE_H265
+#include "modules/video_coding/codecs/h265/include/h265_globals.h"
+#endif
 #include "modules/video_coding/codecs/vp8/include/vp8_globals.h"
 #include "modules/video_coding/codecs/vp9/include/vp9_globals.h"
 #include "rtc_base/checks.h"
@@ -46,6 +51,15 @@ std::unique_ptr<RtpPacketizer> RtpPacketizer::Create(
       return std::make_unique<RtpPacketizerH264>(
           payload, limits, h264.packetization_mode, *fragmentation);
     }
+#ifndef DISABLE_H265
+    case kVideoCodecH265: {
+      RTC_CHECK(fragmentation);
+      const auto& h265 =
+          absl::get<RTPVideoHeaderH265>(rtp_video_header.video_type_header);
+      return absl::make_unique<RtpPacketizerH265>(
+          payload, limits, h265.packetization_mode, *fragmentation);
+    }
+#endif
     case kVideoCodecVP8: {
       const auto& vp8 =
           absl::get<RTPVideoHeaderVP8>(rtp_video_header.video_type_header);
@@ -141,26 +155,6 @@ std::vector<int> RtpPacketizer::SplitAboutEqually(
   }
 
   return result;
-}
-
-RtpDepacketizer* RtpDepacketizer::Create(absl::optional<VideoCodecType> type) {
-  if (!type) {
-    // Use raw depacketizer.
-    return new RtpDepacketizerGeneric(/*generic_header_enabled=*/false);
-  }
-
-  switch (*type) {
-    case kVideoCodecH264:
-      return new RtpDepacketizerH264();
-    case kVideoCodecVP8:
-      return new RtpDepacketizerVp8();
-    case kVideoCodecVP9:
-      return new RtpDepacketizerVp9();
-    case kVideoCodecAV1:
-      return new RtpDepacketizerAv1();
-    default:
-      return new RtpDepacketizerGeneric(/*generic_header_enabled=*/true);
-  }
 }
 
 }  // namespace webrtc
