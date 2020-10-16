@@ -2071,6 +2071,9 @@ void WebRtcVoiceMediaChannel::OnPacketReceived(rtc::CopyOnWriteBuffer packet,
     return;
   }
   RTC_DCHECK(!absl::c_linear_search(unsignaled_recv_ssrcs_, ssrc));
+  
+  // We don't want to process unsignalled streams
+  return;
 
   // Add new stream.
   StreamParams sp = unsignaled_stream_params_;
