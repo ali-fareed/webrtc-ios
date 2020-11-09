@@ -1627,6 +1627,10 @@ void WebRtcVideoChannel::OnPacketReceived(rtc::CopyOnWriteBuffer packet,
   if (discard_unknown_ssrc_packets_) {
     return;
   }
+    
+  // We don't want to process unsignalled streams
+  return;
+
 
   int payload_type = 0;
   if (!GetRtpPayloadType(packet.cdata(), packet.size(), &payload_type)) {
