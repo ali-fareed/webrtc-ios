@@ -337,7 +337,7 @@ static_library("libvpx") {
       sources = libvpx_srcs_arm64
     }
   }
-
+  
   configs -= [ "//build/config/compiler:chromium_code" ]
   configs += [ "//build/config/compiler:no_chromium_code" ]
   configs += [ ":libvpx_config" ]

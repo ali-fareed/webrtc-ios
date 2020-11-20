@@ -35,7 +35,7 @@ lint_suppressions_file = "//tools_webrtc/android/suppressions.xml"
 # so we just ignore that assert. See https://crbug.com/648948 for more info.
 ignore_elf32_limitations = true
 
-if (is_win || is_ios || is_android) {
+if (is_win || is_mac || is_ios || is_android) {
   rtc_use_h265 = true
 } else {
   rtc_use_h265 = false

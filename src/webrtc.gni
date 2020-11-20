@@ -138,7 +138,7 @@ declare_args() {
 
   # Determines whether NEON code will be built.
   rtc_build_with_neon =
-      (current_cpu == "arm" && arm_use_neon) || current_cpu == "arm64"
+      (current_cpu == "arm" && arm_use_neon) || (current_cpu == "arm64")
 
   # Enable this to build OpenH264 encoder/FFmpeg decoder. This is supported on
   # all platforms except Android and iOS. Because FFmpeg can be built
@@ -268,9 +268,10 @@ rtc_libvpx_dir = "//third_party/libvpx"
 rtc_opus_dir = "//third_party/opus"
 
 # Desktop capturer is supported only on Windows, OSX and Linux.
-rtc_desktop_capture_supported =
-    (is_win && current_os != "winuwp") || is_mac ||
-    (is_linux && (rtc_use_x11_extensions || rtc_use_pipewire))
+rtc_desktop_capture_supported = false
+
+#(is_win && current_os != "winuwp") || is_mac ||
+#    (is_linux && (rtc_use_x11_extensions || rtc_use_pipewire))
 
 ###############################################################################
 # Templates

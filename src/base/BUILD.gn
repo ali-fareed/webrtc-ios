@@ -39,7 +39,7 @@ import("//third_party/icu/config.gni")
 
 if (is_mac) {
   # Used to generate fuzzer corpus :base_mach_port_rendezvous_convert_corpus.
-  import("//third_party/protobuf/proto_library.gni")
+  #import("//third_party/protobuf/proto_library.gni")
 }
 
 # Reset sources_assignment_filter for the BUILD.gn file to prevent
@@ -3699,32 +3699,31 @@ fuzzer_test("base_json_string_escape_fuzzer") {
   deps = [ "//base" ]
 }
 
-if (is_mac) {
-  protoc_convert("base_mach_port_rendezvous_convert_corpus") {
-    sources = [
-      "test/data/mach_port_rendezvous_fuzz/dead_name.textproto",
-      "test/data/mach_port_rendezvous_fuzz/send.textproto",
-    ]
-    inputs = [ "//testing/libfuzzer/fuzzers/mach/mach_message.proto" ]
-    output_pattern = "$target_gen_dir/base_mach_port_rendezvous_corpus/{{source_name_part}}.binarypb"
-    args = [
-      "--encode=mach_fuzzer.MachMessage",
-      "-I",
-      rebase_path("//"),
-      rebase_path(inputs[0]),
-    ]
-  }
-  fuzzer_test("base_mach_port_rendezvous_fuzzer") {
-    sources = [ "mac/mach_port_rendezvous_fuzzer.cc" ]
-    deps = [
-      "//base",
-      "//testing/libfuzzer/fuzzers/mach:converter",
-      "//third_party/libprotobuf-mutator",
-    ]
-    seed_corpus = "$target_gen_dir/base_mach_port_rendezvous_corpus"
-    seed_corpus_deps = [ ":base_mach_port_rendezvous_convert_corpus" ]
-  }
-}
+#if (is_mac) {
+#  protoc_convert("base_mach_port_rendezvous_convert_corpus") {
+#    sources = [
+#      "test/data/mach_port_rendezvous_fuzz/dead_name.textproto",
+#      "test/data/mach_port_rendezvous_fuzz/send.textproto",
+#   ]
+#    inputs = [ "//testing/libfuzzer/fuzzers/mach/mach_message.proto" ]
+#    output_pattern = "$target_gen_dir/base_mach_port_rendezvous_corpus/{{source_name_part}}.binarypb"
+#    args = [
+#      "--encode=mach_fuzzer.MachMessage",
+#      "-I",
+#      rebase_path("//"),
+#      rebase_path(inputs[0]),
+#    ]
+#  }
+#  fuzzer_test("base_mach_port_rendezvous_fuzzer") {
+#    deps = [
+#      "//base",
+#      "//testing/libfuzzer/fuzzers/mach:converter",
+#      "//third_party/libprotobuf-mutator",
+#    ]
+#    seed_corpus = "$target_gen_dir/base_mach_port_rendezvous_corpus"
+#    seed_corpus_deps = [ ":base_mach_port_rendezvous_convert_corpus" ]
+#  }
+#}
 
 fuzzer_test("string_number_conversions_fuzzer") {
   sources = [ "strings/string_number_conversions_fuzzer.cc" ]
