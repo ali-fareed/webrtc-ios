@@ -45,6 +45,8 @@ if (is_nacl) {
   # vpx_config.asm
   if (is_ios && current_cpu == "arm") {
     os_category = current_os
+  } else if (is_mac && current_cpu == "arm64") {
+    os_category = "mac"
   } else if (is_posix || is_fuchsia) {
     # Should cover linux, fuchsia, mac, and the ios simulator.
     os_category = "linux"
@@ -337,6 +339,10 @@ static_library("libvpx") {
       sources = libvpx_srcs_arm64
     }
   }
+  if (is_mac && current_cpu == "arm64") {
+    #asmflags = [ "-mfpu=neon" ]
+  }
+  
   
   configs -= [ "//build/config/compiler:chromium_code" ]
   configs += [ "//build/config/compiler:no_chromium_code" ]
