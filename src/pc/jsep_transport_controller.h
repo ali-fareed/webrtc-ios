@@ -267,6 +267,8 @@ class JsepTransportController : public sigslot::has_slots<> {
       SignalIceCandidatePairChanged;
 
   sigslot::signal1<rtc::SSLHandshakeError> SignalDtlsHandshakeError;
+    
+  sigslot::signal1<uint32_t> SignalErrorDemuxingPacket;
 
  private:
   RTCError ApplyDescription_n(bool local,
@@ -414,6 +416,7 @@ class JsepTransportController : public sigslot::has_slots<> {
       DataChannelTransportInterface* data_channel_transport);
 
   void UpdateAggregateStates_n();
+  void ErrorDemuxingPacket_n(uint32_t ssrc);
 
   void OnRtcpPacketReceived_n(rtc::CopyOnWriteBuffer* packet,
                               int64_t packet_time_us);

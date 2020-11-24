@@ -75,6 +75,8 @@ class RtpTransport : public RtpTransportInternal {
                               RtpPacketSinkInterface* sink) override;
 
   bool UnregisterRtpDemuxerSink(RtpPacketSinkInterface* sink) override;
+    
+  virtual void OnErrorDemuxingPacket(uint32_t ssrc);
 
  protected:
   // These methods will be used in the subclasses.
