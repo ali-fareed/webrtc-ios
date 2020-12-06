@@ -1686,7 +1686,7 @@ int32_t AudioDeviceMac::GetDeviceName(const AudioObjectPropertyScope scope,
     }
   }
 
-  AudioObjectPropertyAddress propertyAddress = {kAudioDevicePropertyDeviceUID,
+  AudioObjectPropertyAddress propertyAddress = {kAudioDevicePropertyDeviceName,
                                                 scope, 0};
 
   if (isDefaultDevice) {
