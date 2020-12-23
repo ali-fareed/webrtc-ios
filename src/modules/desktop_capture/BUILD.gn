@@ -8,7 +8,7 @@
 
 import("//build/config/linux/pkg_config.gni")
 import("//build/config/ui.gni")
-import("//tools/generate_stubs/rules.gni")
+#import("//tools/generate_stubs/rules.gni")
 import("../../webrtc.gni")
 
 use_desktop_capture_differ_sse2 = current_cpu == "x86" || current_cpu == "x64"
