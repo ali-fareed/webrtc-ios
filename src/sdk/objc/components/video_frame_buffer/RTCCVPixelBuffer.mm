@@ -153,11 +153,14 @@
 }
 
 - (id<RTCI420Buffer>)toI420 {
+  RTCMutableI420Buffer* i420Buffer = nil;
+  
+  @autoreleasepool {
   const OSType pixelFormat = CVPixelBufferGetPixelFormatType(_pixelBuffer);
 
   CVPixelBufferLockBaseAddress(_pixelBuffer, kCVPixelBufferLock_ReadOnly);
 
-  RTCMutableI420Buffer* i420Buffer =
+  i420Buffer =
       [[RTCMutableI420Buffer alloc] initWithWidth:[self width] height:[self height]];
 
   switch (pixelFormat) {
@@ -246,6 +249,7 @@
   }
 
   CVPixelBufferUnlockBaseAddress(_pixelBuffer, kCVPixelBufferLock_ReadOnly);
+  }
 
   return i420Buffer;
 }

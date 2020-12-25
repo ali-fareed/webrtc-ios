@@ -102,12 +102,14 @@ void ObjCVideoTrackSource::OnCapturedFrame(RTCVideoFrame *frame) {
                       cropY:crop_y + rtcPixelBuffer.cropY]);
     }
   } else {
+    @autoreleasepool {
     // Adapted I420 frame.
     // TODO(magjed): Optimize this I420 path.
     rtc::scoped_refptr<I420Buffer> i420_buffer = I420Buffer::Create(adapted_width, adapted_height);
     buffer = new rtc::RefCountedObject<ObjCFrameBuffer>(frame.buffer);
     i420_buffer->CropAndScaleFrom(*buffer->ToI420(), crop_x, crop_y, crop_width, crop_height);
     buffer = i420_buffer;
+    }
   }
 
   // Applying rotation is only supported for legacy reasons and performance is
